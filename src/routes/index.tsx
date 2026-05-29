@@ -150,17 +150,29 @@ function Index() {
             </button>
             <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
               <iframe
+                key={playing.id}
                 className="h-full w-full"
-                src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
+                src={`https://www.youtube-nocookie.com/embed/${playing.id}?autoplay=1&rel=0&playsinline=1`}
                 title={playing.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
             </div>
-            <h2 className="mt-3 text-base font-semibold text-white">
-              {playing.title}
-            </h2>
-            <p className="text-sm text-white/70">{playing.channel}</p>
+            <div className="mt-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-semibold text-white">{playing.title}</h2>
+                <p className="text-sm text-white/70">{playing.channel}</p>
+              </div>
+              <a
+                href={`https://www.youtube.com/watch?v=${playing.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 rounded-md border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+              >
+                Open on YouTube
+              </a>
+            </div>
           </div>
         </div>
       )}
