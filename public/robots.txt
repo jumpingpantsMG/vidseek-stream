@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tube-search.lovable.app/sitemap.xml

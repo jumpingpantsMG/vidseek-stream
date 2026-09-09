@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
+  staticData: { sitemap: true },
   head: () => ({
     meta: [
       { title: "Tube Search — Find & watch YouTube videos" },
@@ -15,7 +16,14 @@ export const Route = createFileRoute("/")({
         name: "description",
         content: "Search YouTube and watch videos in a clean, fast player.",
       },
+      { property: "og:title", content: "TubeSearch — Search and Watch YouTube Videos" },
+      {
+        property: "og:description",
+        content: "Search for YouTube videos and watch them in a clean, distraction-free player.",
+      },
+      { property: "og:url", content: "https://tube-search.lovable.app/" },
     ],
+    links: [{ rel: "canonical", href: "https://tube-search.lovable.app/" }],
   }),
   component: Index,
 });
