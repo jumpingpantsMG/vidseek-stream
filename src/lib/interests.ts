@@ -72,3 +72,42 @@ export function mix<T extends { id: string }>(buckets: T[][]): T[] {
   }
   return [...fresh, ...old];
 }
+
+// ---- Likes & subscriptions (also feed the algorithm) ----
+const LIKES = "tubesearch:likes:v1";
+const SUBS = "tubesearch:subs:v1";
+const listeners = new Set<() => void>();
+export function onSocialChange(fn: () => void) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+const emit = () => listeners.forEach((f) => f());
+
+export function likedIds(): string[] {
+  return read<string[]>(LIKES, []);
+}
+export function toggleLike(id: string, title: string): boolean {
+  const l = likedIds();
+  const on = !l.includes(id);
+  localStorage.setItem(LIKES, JSON.stringify(on ? [id, ...l] : l.filter((x) => x !== id)));
+  if (on) learn(title, 3);
+  emit();
+  return on;
+}
+export function subscriptions(): string[] {
+  return read<string[]>(SUBS, []);
+}
+export function toggleSub(channel: string): boolean {
+  const s = subscriptions();
+  const on = !s.includes(channel);
+  localStorage.setItem(SUBS, JSON.stringify(on ? [channel, ...s] : s.filter((x) => x !== channel)));
+  emit();
+  return on;
+}
+/** Topics plus one subscribed channel so subscriptions show up in the feed. */
+export function pickFeedTopics(n = 4): string[] {
+  const subs = subscriptions();
+  const t = pickTopics(subs.length ? n - 1 : n);
+  if (subs.length) t.unshift(subs[Math.floor(Math.random() * subs.length)]);
+  return t;
+}
