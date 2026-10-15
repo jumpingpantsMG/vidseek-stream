@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import { Search, Play, X } from "lucide-react";
-import { searchYouTube, type YTVideo } from "@/lib/youtube.functions";
+import { useEffect, useState, type FormEvent } from "react";
+import { Search, Play, X, Zap, RefreshCw } from "lucide-react";
+import { searchYouTube, getFeed, type YTVideo } from "@/lib/youtube.functions";
+import { learn, markWatched, mix, pickTopics } from "@/lib/interests";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,8 @@ export const Route = createFileRoute("/")({
         content: "Search for YouTube videos and watch them in a clean, distraction-free player.",
       },
       { property: "og:url", content: "https://tube-search.lovable.app/" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [{ rel: "canonical", href: "https://tube-search.lovable.app/" }],
   }),
@@ -30,20 +33,40 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [query, setQuery] = useState("");
-  const [playing, setPlaying] = useState<YTVideo | null>(null);
+  const [playing, setPlayingRaw] = useState<YTVideo | null>(null);
   const searchFn = useServerFn(searchYouTube);
+  const feedFn = useServerFn(getFeed);
 
-  const { mutate, data, isPending, error } = useMutation({
+  const setPlaying = (v: YTVideo | null) => {
+    if (v) markWatched(v.id, v.title);
+    setPlayingRaw(v);
+  };
+
+  const { mutate, data, isPending: searchPending, error, reset } = useMutation({
     mutationFn: (q: string) => searchFn({ data: { q } }),
   });
+
+  const feed = useMutation({
+    mutationFn: async () => mix((await feedFn({ data: { topics: pickTopics(4) } })).buckets),
+  });
+
+  useEffect(() => {
+    feed.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const q = query.trim();
-    if (q) mutate(q);
+    if (q) {
+      learn(q, 2);
+      mutate(q);
+    }
   };
 
-  const videos = data?.videos ?? [];
+  const showingFeed = !data;
+  const isPending = showingFeed ? feed.isPending : searchPending;
+  const videos = showingFeed ? (feed.data ?? []) : data.videos;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
