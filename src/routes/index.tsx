@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import { Search, Play, X } from "lucide-react";
-import { searchYouTube, type YTVideo } from "@/lib/youtube.functions";
+import { useEffect, useState, type FormEvent } from "react";
+import { Search, Play, X, Zap, RefreshCw } from "lucide-react";
+import { searchYouTube, getFeed, type YTVideo } from "@/lib/youtube.functions";
+import { learn, markWatched, mix, pickTopics } from "@/lib/interests";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,8 @@ export const Route = createFileRoute("/")({
         content: "Search for YouTube videos and watch them in a clean, distraction-free player.",
       },
       { property: "og:url", content: "https://tube-search.lovable.app/" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [{ rel: "canonical", href: "https://tube-search.lovable.app/" }],
   }),
@@ -30,31 +33,57 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [query, setQuery] = useState("");
-  const [playing, setPlaying] = useState<YTVideo | null>(null);
+  const [playing, setPlayingRaw] = useState<YTVideo | null>(null);
   const searchFn = useServerFn(searchYouTube);
+  const feedFn = useServerFn(getFeed);
 
-  const { mutate, data, isPending, error } = useMutation({
+  const setPlaying = (v: YTVideo | null) => {
+    if (v) markWatched(v.id, v.title);
+    setPlayingRaw(v);
+  };
+
+  const { mutate, data, isPending: searchPending, error, reset } = useMutation({
     mutationFn: (q: string) => searchFn({ data: { q } }),
   });
+
+  const feed = useMutation({
+    mutationFn: async () => mix((await feedFn({ data: { topics: pickTopics(4) } })).buckets),
+  });
+
+  useEffect(() => {
+    feed.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const q = query.trim();
-    if (q) mutate(q);
+    if (q) {
+      learn(q, 2);
+      mutate(q);
+    }
   };
 
-  const videos = data?.videos ?? [];
+  const showingFeed = !data;
+  const isPending = showingFeed ? feed.isPending : searchPending;
+  const videos = showingFeed ? (feed.data ?? []) : data.videos;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <div className="flex items-center gap-2 font-semibold tracking-tight">
+          <button
+            onClick={() => {
+              reset();
+              setQuery("");
+            }}
+            className="flex items-center gap-2 font-semibold tracking-tight"
+          >
             <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
               <Play className="h-4 w-4 fill-current" />
             </span>
-            <span>TubeSearch</span>
-          </div>
+            <span className="hidden sm:inline">TubeSearch</span>
+          </button>
           <form onSubmit={onSubmit} className="ml-auto flex w-full max-w-xl gap-2">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -65,24 +94,29 @@ function Index() {
                 className="pl-9"
               />
             </div>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Searching…" : "Search"}
+            <Button type="submit" disabled={searchPending}>
+              {searchPending ? "…" : "Search"}
             </Button>
           </form>
+          <Button asChild variant="secondary">
+            <Link to="/shorts">
+              <Zap className="h-4 w-4" /> Shorts
+            </Link>
+          </Button>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        {!data && !isPending && (
-          <div className="py-20 text-center">
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Search and watch videos
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              Type anything above to find YouTube videos.
-            </p>
-          </div>
-        )}
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold tracking-tight">
+            {showingFeed ? "Recommended for you" : `Results`}
+          </h1>
+          {showingFeed && (
+            <Button variant="ghost" size="sm" onClick={() => feed.mutate()} disabled={feed.isPending}>
+              <RefreshCw className="h-4 w-4" /> Refresh
+            </Button>
+          )}
+        </div>
 
         {error && (
           <p className="text-sm text-destructive">
